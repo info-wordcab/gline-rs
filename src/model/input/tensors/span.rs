@@ -1,4 +1,5 @@
-use ort::session::SessionInputs;
+use ort::session::input::SessionInputs;
+use ort::{inputs, value::TensorRef};
 use composable::Composable;
 use crate::util::result::Result;
 use super::super::encoded::EncodedInput;
@@ -23,16 +24,16 @@ impl SpanTensors<'_> {
 
     pub fn from(encoded: EncodedInput, max_width: usize) -> Result<Self> {
         let (span_idx, span_mask) = Self::make_spans_tensors(&encoded, max_width);
-        let inputs = ort::inputs!{
-            TENSOR_INPUT_IDS => encoded.input_ids,
-            TENSOR_ATTENTION_MASK => encoded.attention_masks,
-            TENSOR_WORD_MASK => encoded.word_masks,
-            TENSOR_TEXT_LENGTHS => encoded.text_lengths,
-            TENSOR_SPAN_IDX => span_idx,
-            TENSOR_SPAN_MASK => span_mask,
-        }?;
+        let inputs = inputs![
+            TENSOR_INPUT_IDS => TensorRef::from_array_view(encoded.input_ids.view())?,
+            TENSOR_ATTENTION_MASK => TensorRef::from_array_view(encoded.attention_masks.view())?,
+            TENSOR_WORD_MASK => TensorRef::from_array_view(encoded.word_masks.view())?,
+            TENSOR_TEXT_LENGTHS => TensorRef::from_array_view(encoded.text_lengths.view())?,
+            TENSOR_SPAN_IDX => TensorRef::from_array_view(span_idx.view())?,
+            TENSOR_SPAN_MASK => TensorRef::from_array_view(span_mask.view())?,
+        ];
         Ok(Self {
-            tensors: inputs.into(),
+            tensors: inputs,
             context: EntityContext { 
                 texts: encoded.texts, 
                 tokens: encoded.tokens, 

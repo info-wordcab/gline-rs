@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 use std::path::Path;
 use composable::Composable;
-use ort::Session;
+use ort::session::Session;
 use ort::session::builder::GraphOptimizationLevel;
 use ort::session::input::SessionInputs;
 use ort::session::output::SessionOutputs;
@@ -37,7 +37,7 @@ impl Model {
     }
 
     /// Perform inferences using the provided pipeline and parameters
-    pub fn inference<'a, P: Pipeline<'a>>(&'a self, input: P::Input, pipeline: &P, params: &P::Parameters) -> Result<P::Output> {
+    pub fn inference<'a, P: Pipeline<'a>>(&'a mut self, input: P::Input, pipeline: &P, params: &P::Parameters) -> Result<P::Output> {
         // check schema
         self.check_schema(pipeline, params)?;
         // pre-process
@@ -94,7 +94,7 @@ impl Model {
         Ok(())
     }
 
-    fn run(&self, input: SessionInputs<'_, '_>) -> Result<SessionOutputs<'_>> {
+    fn run(&mut self, input: SessionInputs<'_, '_>) -> Result<SessionOutputs<'_>> {
         Ok(self.session.run(input)?)
     }
 }

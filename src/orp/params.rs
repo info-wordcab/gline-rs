@@ -1,4 +1,4 @@
-use ort::execution_providers::ExecutionProviderDispatch;
+use ort::execution_providers::{ExecutionProviderDispatch, CPUExecutionProvider};
 
 #[derive(Debug, Clone)]
 pub struct RuntimeParameters {
@@ -20,7 +20,7 @@ impl Default for RuntimeParameters {
     fn default() -> Self {
         Self {
             threads: 1,
-            execution_providers: vec![ExecutionProviderDispatch::CPU],
+            execution_providers: vec![CPUExecutionProvider::default().build()],
         }
     }
 }

@@ -1,4 +1,5 @@
-use ort::session::SessionInputs;
+use ort::session::input::SessionInputs;
+use ort::{inputs, value::TensorRef};
 use composable::Composable;
 use crate::util::result::Result;
 use super::super::encoded::EncodedInput;
@@ -14,20 +15,20 @@ const TENSOR_TEXT_LENGTHS: &str = "text_lengths";
 /// Ready-for-inference tensors (token mode)
 pub struct TokenTensors<'a> {
     pub tensors: SessionInputs<'a, 'a>,
-    pub context: EntityContext,    
+    pub context: EntityContext,
 }
 
 impl TokenTensors<'_> {
 
     pub fn from(encoded: EncodedInput) -> Result<Self> {
-        let inputs = ort::inputs!{
-            TENSOR_INPUT_IDS => encoded.input_ids,
-            TENSOR_ATTENTION_MASK => encoded.attention_masks,
-            TENSOR_WORD_MASK => encoded.word_masks,
-            TENSOR_TEXT_LENGTHS => encoded.text_lengths,
-        }?;
+        let inputs = inputs![
+            TENSOR_INPUT_IDS => TensorRef::from_array_view(encoded.input_ids.view())?,
+            TENSOR_ATTENTION_MASK => TensorRef::from_array_view(encoded.attention_masks.view())?,
+            TENSOR_WORD_MASK => TensorRef::from_array_view(encoded.word_masks.view())?,
+            TENSOR_TEXT_LENGTHS => TensorRef::from_array_view(encoded.text_lengths.view())?,
+        ];
         Ok(Self {
-            tensors: inputs.into(),
+            tensors: inputs,
             context: EntityContext { 
                 texts: encoded.texts, 
                 tokens: encoded.tokens, 
