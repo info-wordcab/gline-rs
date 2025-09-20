@@ -3,7 +3,7 @@
 use std::collections::HashSet;
 use std::path::Path;
 use ::composable::*;
-use orp::{pipeline::*, params::RuntimeParameters};
+use crate::orp::{pipeline::*, params::RuntimeParameters};
 use crate::util::result::Result;
 use super::super::super::text::{splitter::Splitter, tokenizer::Tokenizer};
 use super::super::{input, output, params};

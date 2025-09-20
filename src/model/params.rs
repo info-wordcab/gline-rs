@@ -1,5 +1,7 @@
 //! Processing parameters
 
+pub use crate::orp::params::RuntimeParameters;
+
 
 /// Represents the set of parameters for the whole pipeline
 /// 

@@ -2,7 +2,7 @@
 
 use std::path::Path;
 use ::composable::*;
-use orp::pipeline::*;
+use crate::orp::pipeline::*;
 use crate::model::output::decoded::SpanOutput;
 use crate::text::{splitter::Splitter, tokenizer::Tokenizer};
 use crate::model::input::relation::schema::RelationSchema;

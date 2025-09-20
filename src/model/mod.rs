@@ -6,9 +6,9 @@ pub mod input;
 pub mod output;
 
 use crate::util::result::Result;
-use orp::pipeline::Pipeline;
+use crate::orp::pipeline::Pipeline;
 use params::Parameters;
-use orp::model::Model;
+use crate::orp::model::Model;
 
 
 /// Basic GLiNER, to be parametrized by a specific pipeline (see implementations within the pipeline module)
