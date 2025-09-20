@@ -7,7 +7,7 @@
 //! It aims to provide an efficient, production-grade, user-friendly API in a modern and safe programming language, 
 //! as well as a clean and maintainable implementation of the mechanics surrounding the model itself.
 
-mod orp;  // Local orp replacement module
+pub mod orp;  // Local orp replacement module (made public for examples)
 pub mod model;
 pub mod text;
 pub mod util;

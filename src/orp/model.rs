@@ -1,5 +1,6 @@
 use std::collections::HashSet;
 use std::path::Path;
+use std::cell::UnsafeCell;
 use composable::Composable;
 use ort::session::Session;
 use ort::session::builder::GraphOptimizationLevel;
@@ -11,8 +12,9 @@ use super::params::RuntimeParameters;
 use super::pipeline::Pipeline;
 
 /// A `Model` can load an ONNX model, and run it using the provided pipeline.
+/// Uses UnsafeCell for interior mutability since SessionOutputs borrows from Session
 pub struct Model {
-    session: Session,
+    session: UnsafeCell<Session>,
 }
 
 impl Model {
@@ -23,7 +25,7 @@ impl Model {
             .with_optimization_level(GraphOptimizationLevel::Level3)?
             .commit_from_file(model_path)?;
 
-        Ok(Self { session })
+        Ok(Self { session: UnsafeCell::new(session) })
     }
 
     pub fn new_from_bytes(model_bytes: &[u8], params: RuntimeParameters) -> Result<Self> {
@@ -33,11 +35,11 @@ impl Model {
             .with_optimization_level(GraphOptimizationLevel::Level3)?
             .commit_from_memory(model_bytes)?;
 
-        Ok(Self { session })
+        Ok(Self { session: UnsafeCell::new(session) })
     }
 
     /// Perform inferences using the provided pipeline and parameters
-    pub fn inference<'a, P: Pipeline<'a>>(&'a mut self, input: P::Input, pipeline: &P, params: &P::Parameters) -> Result<P::Output> {
+    pub fn inference<'a, P: Pipeline<'a>>(&'a self, input: P::Input, pipeline: &P, params: &P::Parameters) -> Result<P::Output> {
         // check schema
         self.check_schema(pipeline, params)?;
         // pre-process
@@ -56,16 +58,17 @@ impl Model {
 
     /// Writes various model properties from metadata and input/output tensors
     pub fn inspect<W: std::io::Write>(&self, mut writer: W) -> Result<()> {
-        let metadata = self.session.metadata()?;
+        let session = unsafe { &*self.session.get() };
+        let metadata = session.metadata()?;
         writeln!(writer, "NAME: {}", metadata.name()?)?;
         writeln!(writer, "PRODUCER: {}", metadata.producer()?)?;
         writeln!(writer, "VERSION: {}", metadata.version()?)?;
         writeln!(writer, "INPUTS:")?;
-        for input in &self.session.inputs {
+        for input in &session.inputs {
             writeln!(writer, "\t{}: {:?}", input.name, input.input_type)?;
         }
         writeln!(writer, "OUTPUTS:")?;
-        for output in &self.session.outputs {
+        for output in &session.outputs {
             writeln!(writer, "\t{}: {:?}", output.name, output.output_type)?;
         }
         Ok(())
@@ -73,10 +76,11 @@ impl Model {
 
     /// Check model schema wrt. pipeline expectations
     fn check_schema<'a, P: Pipeline<'a>>(&'a self, pipeline: &P, params: &P::Parameters) -> Result<()> {
+        let session = unsafe { &*self.session.get() };
         if let Some(expected_inputs) = pipeline.expected_inputs(params) {
             // inputs should be exactly the same sets
             let expected_inputs: HashSet<_> = expected_inputs.collect();
-            let actual_inputs: HashSet<_> = self.session.inputs.iter().map(|i| i.name.as_str()).collect();
+            let actual_inputs: HashSet<_> = session.inputs.iter().map(|i| i.name.as_str()).collect();
             if !actual_inputs.eq(&expected_inputs) {
                 return Err(format!("Unexpected model schema for inputs. Expected: {:?}, Actual: {:?}",
                     expected_inputs, actual_inputs).into());
@@ -85,7 +89,7 @@ impl Model {
         if let Some(expected_outputs) = pipeline.expected_outputs(params) {
             // for outputs, we just check that the expected ones are present (but having others is ok)
             let expected_outputs: HashSet<_> = expected_outputs.collect();
-            let actual_outputs: HashSet<_> = self.session.outputs.iter().map(|i| i.name.as_str()).collect();
+            let actual_outputs: HashSet<_> = session.outputs.iter().map(|i| i.name.as_str()).collect();
             if !actual_outputs.is_superset(&expected_outputs) {
                 return Err(format!("Unexpected model schema for outputs. Expected: {:?}, Actual: {:?}",
                     expected_outputs, actual_outputs).into());
@@ -94,8 +98,14 @@ impl Model {
         Ok(())
     }
 
-    fn run(&mut self, input: SessionInputs<'_, '_>) -> Result<SessionOutputs<'_>> {
-        Ok(self.session.run(input)?)
+    fn run(&self, input: SessionInputs<'_, '_>) -> Result<SessionOutputs<'_>> {
+        // SAFETY: We ensure that Session::run is only called from one place at a time
+        // and the returned SessionOutputs does not outlive self
+        unsafe {
+            let session = &mut *self.session.get();
+            let outputs = session.run(input)?;
+            Ok(outputs)
+        }
     }
 }
 

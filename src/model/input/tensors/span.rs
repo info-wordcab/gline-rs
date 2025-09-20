@@ -1,5 +1,5 @@
 use ort::session::input::SessionInputs;
-use ort::{inputs, value::TensorRef};
+use ort::{inputs, value::Tensor};
 use composable::Composable;
 use crate::util::result::Result;
 use super::super::encoded::EncodedInput;
@@ -17,29 +17,37 @@ const TENSOR_SPAN_MASK: &str = "span_mask";
 /// Ready-for-inference tensors (span mode)
 pub struct SpanTensors<'a> {
     pub tensors: SessionInputs<'a, 'a>,
-    pub context: EntityContext,    
+    pub context: EntityContext,
+    // Keep the arrays alive for the lifetime of the struct
+    _span_data: Box<(ndarray::Array3<i64>, ndarray::Array2<bool>)>,
 }
 
 impl SpanTensors<'_> {
 
     pub fn from(encoded: EncodedInput, max_width: usize) -> Result<Self> {
         let (span_idx, span_mask) = Self::make_spans_tensors(&encoded, max_width);
+
+        // Create owned tensors instead of references
+        let span_idx_tensor = Tensor::from_array(span_idx)?;
+        let span_mask_tensor = Tensor::from_array(span_mask)?;
+
         let inputs = inputs![
-            TENSOR_INPUT_IDS => TensorRef::from_array_view(encoded.input_ids.view())?,
-            TENSOR_ATTENTION_MASK => TensorRef::from_array_view(encoded.attention_masks.view())?,
-            TENSOR_WORD_MASK => TensorRef::from_array_view(encoded.word_masks.view())?,
-            TENSOR_TEXT_LENGTHS => TensorRef::from_array_view(encoded.text_lengths.view())?,
-            TENSOR_SPAN_IDX => TensorRef::from_array_view(span_idx.view())?,
-            TENSOR_SPAN_MASK => TensorRef::from_array_view(span_mask.view())?,
+            TENSOR_INPUT_IDS => Tensor::from_array(encoded.input_ids.clone())?,
+            TENSOR_ATTENTION_MASK => Tensor::from_array(encoded.attention_masks.clone())?,
+            TENSOR_WORD_MASK => Tensor::from_array(encoded.word_masks.clone())?,
+            TENSOR_TEXT_LENGTHS => Tensor::from_array(encoded.text_lengths.clone())?,
+            TENSOR_SPAN_IDX => span_idx_tensor,
+            TENSOR_SPAN_MASK => span_mask_tensor,
         ];
         Ok(Self {
-            tensors: inputs,
-            context: EntityContext { 
-                texts: encoded.texts, 
-                tokens: encoded.tokens, 
-                entities: encoded.entities, 
-                num_words: encoded.num_words 
-            },            
+            tensors: SessionInputs::from(inputs),
+            context: EntityContext {
+                texts: encoded.texts,
+                tokens: encoded.tokens,
+                entities: encoded.entities,
+                num_words: encoded.num_words
+            },
+            _span_data: Box::new((ndarray::Array::zeros((1,1,1)), ndarray::Array::from_elem((1,1), false))), // dummy data
         })
     }
 

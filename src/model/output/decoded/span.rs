@@ -40,10 +40,22 @@ impl TensorsToDecoded {
 
         // look for logits and check its shape
         let logits = input.tensors.get(TENSOR_LOGITS).ok_or("logits not found in model output")?;
-        self.check_shape(logits.shape()?, &input.context)?;
+        self.check_shape(logits.shape().to_vec(), &input.context)?;
         
         // extract the actual array
-        let array = logits.try_extract_tensor::<f32>()?;
+        let (shape, array_data) = logits.try_extract_tensor::<f32>()?;
+
+        // Get dimensions from the shape
+        if shape.len() != 4 {
+            return Err(format!("Expected 4D tensor, got {}D", shape.len()).into());
+        }
+        let max_tokens = shape[2] as usize;
+        let num_classes = shape[3] as usize;
+
+        // Convert to ndarray - we need to construct the array from the raw data
+        // The shape should be [batch_size, max_width, num_tokens, num_classes]
+        let array = ndarray::ArrayView4::from_shape([batch_size, self.max_width, max_tokens, num_classes], array_data)
+            .map_err(|e| format!("Failed to create array view: {}", e))?;
 
         // iterate over the sequences
         for sequence_id in 0..batch_size {

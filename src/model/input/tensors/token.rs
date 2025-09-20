@@ -1,5 +1,5 @@
 use ort::session::input::SessionInputs;
-use ort::{inputs, value::TensorRef};
+use ort::{inputs, value::Tensor};
 use composable::Composable;
 use crate::util::result::Result;
 use super::super::encoded::EncodedInput;
@@ -21,14 +21,15 @@ pub struct TokenTensors<'a> {
 impl TokenTensors<'_> {
 
     pub fn from(encoded: EncodedInput) -> Result<Self> {
+        // Create owned tensors from the encoded data
         let inputs = inputs![
-            TENSOR_INPUT_IDS => TensorRef::from_array_view(encoded.input_ids.view())?,
-            TENSOR_ATTENTION_MASK => TensorRef::from_array_view(encoded.attention_masks.view())?,
-            TENSOR_WORD_MASK => TensorRef::from_array_view(encoded.word_masks.view())?,
-            TENSOR_TEXT_LENGTHS => TensorRef::from_array_view(encoded.text_lengths.view())?,
+            TENSOR_INPUT_IDS => Tensor::from_array(encoded.input_ids.clone())?,
+            TENSOR_ATTENTION_MASK => Tensor::from_array(encoded.attention_masks.clone())?,
+            TENSOR_WORD_MASK => Tensor::from_array(encoded.word_masks.clone())?,
+            TENSOR_TEXT_LENGTHS => Tensor::from_array(encoded.text_lengths.clone())?,
         ];
         Ok(Self {
-            tensors: inputs,
+            tensors: SessionInputs::from(inputs),
             context: EntityContext { 
                 texts: encoded.texts, 
                 tokens: encoded.tokens, 

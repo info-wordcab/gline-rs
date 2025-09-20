@@ -22,7 +22,7 @@ pub struct GLiNER<P> {
 
 
 impl<'a, P: Pipeline<'a, Parameters = Parameters>> GLiNER<P> {
-    pub fn inference(&'a mut self, input: P::Input) -> Result<P::Output> {
+    pub fn inference(&'a self, input: P::Input) -> Result<P::Output> {
         self.model.inference(input, &self.pipeline, &self.params)
     }
 }
