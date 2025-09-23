@@ -80,7 +80,7 @@ impl SpanTensors<'_> {
     fn make_spans_tensors(encoded: &EncodedInput, max_width: usize) -> (ndarray::Array3<i64>, ndarray::Array2<bool>) {
         // total number of spans for each sequence: at most num_words * max_width
         let num_spans = encoded.num_words * max_width;
-        
+
         // prepare output tensors (zero-filled, values will be set in place)
         let mut span_idx = ndarray::Array::zeros((encoded.texts.len(), num_spans, 2));
         let mut span_mask = ndarray::Array::from_elem((encoded.texts.len(), num_spans), false);
@@ -91,7 +91,7 @@ impl SpanTensors<'_> {
             let text_width = *encoded.text_lengths.get((s, 0)).unwrap() as usize;
 
             // repeat for each start offset in [0;text_width]
-            for start in 0..text_width {          
+            for start in 0..text_width {
                 // remaining width from start offset
                 let remaining_width = text_width - start;
                 // the maximum span width is no more than remaining width in the sequence, or maximum span width
@@ -100,6 +100,14 @@ impl SpanTensors<'_> {
                 for width in 0..actual_max_width {
                     // retrieve the appropriate dimension on the second axis
                     let dim = start * max_width + width;
+
+                    // CRITICAL FIX: Validate that dim is within bounds
+                    if dim >= num_spans {
+                        eprintln!("Warning: Skipping out-of-bounds span index: dim={}, num_spans={}, start={}, width={}, text_width={}",
+                                  dim, num_spans, start, width, text_width);
+                        continue;
+                    }
+
                     // fill the tensors in place
                     span_idx[[s, dim, 0]] = start as i64; // start offset
                     span_idx[[s, dim, 1]] = (start + width) as i64; // end offset
