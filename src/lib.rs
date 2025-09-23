@@ -12,3 +12,8 @@ pub mod model;
 pub mod text;
 pub mod util;
 
+// Re-export execution providers for easier access
+pub mod execution_providers {
+    pub use ort::execution_providers::*;
+}
+
