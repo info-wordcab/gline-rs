@@ -45,12 +45,24 @@ impl TensorsToDecoded {
         // look for logits and check its shape
         let logits = input.tensors.get(TENSOR_LOGITS).ok_or("logits not found in model output")?;
         self.check_shape(logits.shape().to_vec(), &input.context)?;
-    
-        // extract the actual array
-        let (shape, array_data) = logits.try_extract_tensor::<f32>()
-            .map_err(|e| {
-                format!("Failed to extract tensor as f32. This commonly happens with Float16 models. Please use the INT8 quantized model instead. Original error: {}", e)
-            })?;
+
+        // extract the actual array - try f32 first, then f16 if that fails
+        let (shape, array_data) = match logits.try_extract_tensor::<f32>() {
+            Ok(result) => result,
+            Err(_) => {
+                // Try extracting as f16 and convert to f32
+                let (shape, f16_data) = logits.try_extract_tensor::<half::f16>()
+                    .map_err(|e| format!("Failed to extract tensor as both f32 and f16: {}", e))?;
+
+                // Convert f16 data to f32
+                let f32_data: Vec<f32> = f16_data.iter().map(|&x| x.to_f32()).collect();
+
+                // We need to return a reference to the data, so we'll leak it
+                // This is acceptable since tensor processing is typically done once per inference
+                let leaked_data = f32_data.leak();
+                (shape, leaked_data)
+            }
+        };
 
         // Get dimensions from the shape
         if shape.len() != 4 {

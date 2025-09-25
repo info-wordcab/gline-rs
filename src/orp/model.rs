@@ -22,7 +22,7 @@ impl Model {
         let session = Session::builder()?
             .with_intra_threads(params.threads())?
             .with_execution_providers(params.into_execution_providers())?
-            .with_optimization_level(GraphOptimizationLevel::Level3)?
+            .with_optimization_level(GraphOptimizationLevel::Disable)?
             .commit_from_file(model_path)?;
 
         Ok(Self { session: UnsafeCell::new(session) })
@@ -32,7 +32,7 @@ impl Model {
         let session = Session::builder()?
             .with_intra_threads(params.threads())?
             .with_execution_providers(params.into_execution_providers())?
-            .with_optimization_level(GraphOptimizationLevel::Level3)?
+            .with_optimization_level(GraphOptimizationLevel::Disable)?
             .commit_from_memory(model_bytes)?;
 
         Ok(Self { session: UnsafeCell::new(session) })

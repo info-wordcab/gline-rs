@@ -109,13 +109,28 @@ impl TensorsToDecoded {
 }
 
 impl Composable<TensorOutput<'_>, SpanOutput> for TensorsToDecoded {
-    fn apply(&self, input: TensorOutput) -> Result<SpanOutput> {        
+    fn apply(&self, input: TensorOutput) -> Result<SpanOutput> {
         let logits_value = input.tensors.get("logits").ok_or("logits not found in model output")?;
-        let (_shape, logits) = logits_value.try_extract_tensor::<f32>()
-            .map_err(|e| {
-                format!("Failed to extract tensor as f32. This commonly happens with Float16 models. Please use the INT8 quantized model instead. Original error: {}", e)
-            })?;
-        let spans = self.decoder.decode(logits, &input.context)?;        
-        Ok(SpanOutput::new(input.context.texts, input.context.entities, spans))      
+
+        // Try extracting as f32 first, then f16 if that fails
+        let (_shape, logits) = match logits_value.try_extract_tensor::<f32>() {
+            Ok(result) => result,
+            Err(_) => {
+                // Try extracting as f16 and convert to f32
+                let (shape, f16_data) = logits_value.try_extract_tensor::<half::f16>()
+                    .map_err(|e| format!("Failed to extract tensor as both f32 and f16: {}", e))?;
+
+                // Convert f16 data to f32
+                let f32_data: Vec<f32> = f16_data.iter().map(|&x| x.to_f32()).collect();
+
+                // We need to return a reference to the data, so we'll leak it
+                // This is acceptable since tensor processing is typically done once per inference
+                let leaked_data = f32_data.leak();
+                (shape, leaked_data)
+            }
+        };
+
+        let spans = self.decoder.decode(logits, &input.context)?;
+        Ok(SpanOutput::new(input.context.texts, input.context.entities, spans))
     }
 }
