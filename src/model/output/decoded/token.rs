@@ -59,7 +59,7 @@ impl TensorsToDecoded {
 
                 // We need to return a reference to the data, so we'll leak it
                 // This is acceptable since tensor processing is typically done once per inference
-                let leaked_data = f32_data.leak();
+                let leaked_data = f32_data.leak() as &[f32];
                 (shape, leaked_data)
             }
         };
