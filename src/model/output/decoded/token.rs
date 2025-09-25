@@ -47,7 +47,10 @@ impl TensorsToDecoded {
         self.check_shape(logits.shape().to_vec(), &input.context)?;
     
         // extract the actual array
-        let (shape, array_data) = logits.try_extract_tensor::<f32>()?;
+        let (shape, array_data) = logits.try_extract_tensor::<f32>()
+            .map_err(|e| {
+                format!("Failed to extract tensor as f32. This commonly happens with Float16 models. Please use the INT8 quantized model instead. Original error: {}", e)
+            })?;
 
         // Get dimensions from the shape
         if shape.len() != 4 {
