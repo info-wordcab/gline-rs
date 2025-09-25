@@ -1,0 +1,11 @@
+[build]
+
+# Fix Windows linker conflicts for esaxx-rs and other C/C++ dependencies
+# This ensures consistent dynamic linking when gline-rs is used as a dependency
+[target.'cfg(target_os = "windows")']
+rustflags = ["-C", "target-feature=-crt-static"]
+
+# Ensure C/C++ dependencies (like esaxx-rs) use dynamic runtime
+[env]
+CXXFLAGS = "/MD"
+CFLAGS = "/MD"
